@@ -17,33 +17,46 @@ module.exports = {
 		publicPath: '/'
 	},
 	plugins: [
-		new webpack.HotModuleReplacementPlugin(),
-		new webpack.NoErrorsPlugin()
+		new webpack.HotModuleReplacementPlugin()
 	],
 	module: {
-		loaders: [
+		rules: [
 			{
 				test: /\.(ico|css|gif|png|html|jpg|xml|svg)$/,
-					// loader: 'url?limit=10000',
-				loader: 'file?name=[path][name].[ext]&context=./static',
+				use: [{
+					loader: 'file-loader',
+					options: {
+						name: '[path][name].[ext]',
+						context: path.resolve(__dirname, 'static'),
+						esModule: false
+					}
+				}]
 			},
 			{
-				test: /\.jsx?/,
-				loaders: ['babel'],
-				include: path.join(__dirname, 'src')
+				test: /\.jsx?$/,
+				include: path.resolve(__dirname, 'src'),
+				use: {
+					loader: 'babel-loader'
+				}
 			},
 			{
 				test: /\.scss$/,
-				loaders: ['style', 'css', 'sass']
+				use: ['style-loader', 'css-loader', 'sass-loader']
 			},
 			{
 				test: /\.css$/,
-				loaders: ['style', 'css']
+				use: ['style-loader', 'css-loader']
 			},
 			{
 				test: /(flickity|fizzy-ui-utils|get-size|unipointer|imagesloaded)/,
-				loader: 'imports?define=>false&this=>window'
-			},
+				use: {
+					loader: 'imports-loader',
+					options: {
+						additionalCode: 'var define = false;',
+						wrapper: 'window'
+					}
+				}
+			}
 		]
 	},
 }

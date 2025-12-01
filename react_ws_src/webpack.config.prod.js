@@ -1,6 +1,7 @@
 var path = require('path')
 var webpack = require('webpack')
-var ExtractTextPlugin = require('extract-text-webpack-plugin')
+var MiniCssExtractPlugin = require('mini-css-extract-plugin')
+var TerserPlugin = require('terser-webpack-plugin')
 
 module.exports = {
 	devtool: 'source-map',
@@ -13,42 +14,68 @@ module.exports = {
 		filename: 'bundle.js',
 		publicPath: './'
 	},
+	mode: 'production',
+	optimization: {
+		minimize: true,
+		minimizer: [
+			new TerserPlugin({
+				terserOptions: {
+					compress: {
+						warnings: false // equivalent to your old compressor: { warnings: false }
+					}
+				}
+			})
+		],
+		splitChunks: {
+			chunks: 'all'
+		}
+	},
 	plugins: [
-		new ExtractTextPlugin('style.css'),
-		new webpack.optimize.OccurenceOrderPlugin(),
+		new MiniCssExtractPlugin({ filename: 'style.css'}),
 		new webpack.DefinePlugin({
 			'process.env': {
 				'NODE_ENV': JSON.stringify('production')
 			}
-		}),
-		new webpack.optimize.UglifyJsPlugin({
-			compressor: {
-				warnings: false
-			}
 		})
 	],
 	module: {
-		loaders: [
+		rules: [
 			{
 				test: /\.(ico|gif|png|html|jpg|swf|xml|svg)$/,
-				loader: 'file?name=[path][name].[ext]'
+				use: [{
+					loader: 'file-loader',
+					options: {
+						name: '[path][name].[ext]',
+						context: path.resolve(__dirname, 'static'),
+						esModule: false
+					}
+				}]
 			},
 			{
 				test: /\.scss$/,
-				loader: ExtractTextPlugin.extract(
-					'style',
-					'css!sass'
-				)
+				use: [
+					MiniCssExtractPlugin.loader, // extracts CSS into separate file
+					'css-loader',                // translates CSS into CommonJS
+					'sass-loader'                // compiles Sass to CSS
+				]
 			},
 			{
-				test: /\.jsx?/,
-				loaders: ['babel'],
-				include: path.join(__dirname, 'src')
+				test: /\.jsx?$/,
+				include: path.resolve(__dirname, 'src'),
+				use: {
+					loader: 'babel-loader'
+				}
 			},
 			{
 				test: /(flickity|fizzy-ui-utils|get-size|unipointer|imagesloaded)/,
-				loader: 'imports?define=>false&this=>window'
-			},
+				use: {
+					loader: 'imports-loader',
+					options: {
+						additionalCode: 'var define = false;',
+						wrapper: 'window'
+					}
+				}
+			}
 		]
 	},
 }
