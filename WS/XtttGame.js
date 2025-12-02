@@ -5,22 +5,28 @@
 
 // New player has joined
 function onNewPlayer(data) {
+	const { boardSize = 3 } = data
 
 	util.log("New player has joined: "+data.name);
 
 	// Create a new player
-	var newPlayer = new Player(-1, data.name, "looking");
+	var newPlayer = new Player(-1, data.name, "looking", boardSize);
 	newPlayer.sockid = this.id;
 
 	this.player = newPlayer;
 
 	// Add new player to the players array
 	players.push(newPlayer);
-	players_avail.push(newPlayer);
+
+	if ( !players_avail[boardSize] ) {
+		players_avail[boardSize] = []
+	}
+
+	players_avail[boardSize].push(newPlayer)
 
 	// util.log("looking for pair - uid:"+newPlayer.uid + " ("+newPlayer.name + ")");
 
-	pair_avail_players();
+	pair_avail_players(boardSize);
 
 	// updAdmin("looking for pair - uid:"+p.uid + " ("+p.name + ")");
 
@@ -30,14 +36,12 @@ function onNewPlayer(data) {
 
 // ----	--------------------------------------------	--------------------------------------------	
 
-function pair_avail_players() {
-
-	if (players_avail.length < 2)
+function pair_avail_players(boardSize) {
+	if (players_avail[boardSize].length < 2)
 		return;
 
-
-	var p1 = players_avail.shift();
-	var p2 = players_avail.shift();
+	var p1 = players_avail[boardSize].shift();
+	var p2 = players_avail[boardSize].shift();
 
 	p1.mode = 'm';
 	p2.mode = 's';
@@ -62,10 +66,11 @@ function pair_avail_players() {
 
 function onTurn(data) {
 	//util.log("onGameLoadedS with qgid: "+data.qgid);
+	const { rowIx, colIx } = data
 
-	io.to(this.player.opp.sockid).emit("opp_turn", {cell_id: data.cell_id});
+	io.to(this.player.opp.sockid).emit("opp_turn", {rowIx, colIx});
 
-	util.log("turn  --  usr:"+this.player.mode + " - :"+this.player.name + "  --  cell_id:"+data.cell_id);
+	util.log("turn  --  usr:"+this.player.mode + " - :"+this.player.name + "  --  rowIx:"+rowIx+",colIx:"+colIx);
 	// updAdmin("Q answer - game - qgid:"+data.qgid + "  --  usr:"+this.player.mode + " - uid:"+this.player.uid + "  --  qnum:"+data.qnum + "  --  ans:"+data.ansnum);
 };
 
@@ -78,8 +83,9 @@ function onClientDisconnect() {
 
 
 	var removePlayer = this.player;
+	const { boardSize } = removePlayer
 	players.splice(players.indexOf(removePlayer), 1);
-	players_avail.splice(players_avail.indexOf(removePlayer), 1);
+	players_avail[boardSize]?.splice(players_avail[boardSize].indexOf(removePlayer), 1);
 
 
 	if (this.status == "admin") {

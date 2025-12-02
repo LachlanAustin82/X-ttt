@@ -12,7 +12,7 @@ module.exports = {
 	output: {
 		path: path.join(__dirname, 'dist'),
 		filename: 'bundle.js',
-		publicPath: './'
+		publicPath: ''
 	},
 	mode: 'production',
 	optimization: {
@@ -26,9 +26,7 @@ module.exports = {
 				}
 			})
 		],
-		splitChunks: {
-			chunks: 'all'
-		}
+		splitChunks: false
 	},
 	plugins: [
 		new MiniCssExtractPlugin({ filename: 'style.css'}),

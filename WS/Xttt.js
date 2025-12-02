@@ -11,7 +11,7 @@ util = require("util");							// Utility resources (logging, object inspection, 
 **************************************************/
 Player = require("./Player").Player;			// Player class
 players = [];									// Array of connected players
-players_avail = [];
+players_avail = {};
 
 
 var port = process.env.PORT || 3001;

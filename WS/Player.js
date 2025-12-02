@@ -1,7 +1,7 @@
 /**************************************************
 ** GAME PLAYER CLASS
 **************************************************/
-var Player = function(u, n, s) {
+var Player = function(u, n, s, boardSize) {
 	var uid = u,
 		status = s,
 		sockid,
@@ -18,7 +18,8 @@ var Player = function(u, n, s) {
 		socket: socket,
 		mode: mode,
 		name: name,
-		opp: opp
+		opp: opp,
+		boardSize
 	}
 };
 
