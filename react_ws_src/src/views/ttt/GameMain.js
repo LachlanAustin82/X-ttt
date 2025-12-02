@@ -7,28 +7,20 @@ import TweenMax from 'gsap'
 import rand_arr_elem from '../../helpers/rand_arr_elem'
 import rand_to_fro from '../../helpers/rand_to_fro'
 
-export default class SetName extends Component {
+const cellId = (rowIx, colIx) => `${rowIx}-${colIx}`
+
+export default class GameMain extends Component {
 
 	constructor (props) {
 		super(props)
 
-		this.win_sets = [
-			['c1', 'c2', 'c3'],
-			['c4', 'c5', 'c6'],
-			['c7', 'c8', 'c9'],
-
-			['c1', 'c4', 'c7'],
-			['c2', 'c5', 'c8'],
-			['c3', 'c6', 'c9'],
-
-			['c1', 'c5', 'c9'],
-			['c3', 'c5', 'c7']
-		]
+		const board = Array.from({length: this.props.boardSize})
+			.map(() => Array.from({length: this.props.boardSize}))
 
 
 		if (this.props.game_type != 'live')
 			this.state = {
-				cell_vals: {},
+				board,
 				next_turn_ply: true,
 				game_play: true,
 				game_stat: 'Start game'
@@ -37,7 +29,7 @@ export default class SetName extends Component {
 			this.sock_start()
 
 			this.state = {
-				cell_vals: {},
+				board,
 				next_turn_ply: true,
 				game_play: false,
 				game_stat: 'Connecting'
@@ -59,10 +51,10 @@ export default class SetName extends Component {
 
 		this.socket = io(app.settings.ws_conf.loc.SOCKET__io.u);
 
-		this.socket.on('connect', function(data) { 
-			// console.log('socket connected', data)
+		this.socket.on('connect', function(data) {
+			const { boardSize } = this.props
 
-			this.socket.emit('new player', { name: app.settings.curr_user.name });
+			this.socket.emit('new player', { name: app.settings.curr_user.name, boardSize });
 
 		}.bind(this));
 
@@ -94,23 +86,24 @@ export default class SetName extends Component {
 
 //	------------------------	------------------------	------------------------
 
-	cell_cont (c) {
-		const { cell_vals } = this.state
-
-		return (<div>
-		        	{cell_vals && cell_vals[c]=='x' && <i className="fa fa-times fa-5x"></i>}
-					{cell_vals && cell_vals[c]=='o' && <i className="fa fa-circle-o fa-5x"></i>}
-				</div>)
-	}
-
-//	------------------------	------------------------	------------------------
-
 	render () {
-		const { cell_vals } = this.state
-		// console.log(cell_vals)
+		const clickCell = this.click_cell.bind(this)
+
+		const getCellClass = (rowIx, colIx) => {
+			const className = []
+
+			if ( rowIx > 0 && rowIx < this.props.boardSize - 1 ) {
+				className.push('hbrd')
+			}
+			if ( colIx > 0 && colIx < this.props.boardSize - 1 ) {
+				className.push('vbrd')
+			}
+
+			return className.join(' ')
+		}
 
 		return (
-			<div id='GameMain'>
+			<div id='GameMain' className="game-main">
 
 				<h1>Play {this.props.game_type}</h1>
 
@@ -122,21 +115,23 @@ export default class SetName extends Component {
 				<div id="game_board">
 					<table>
 					<tbody>
+					{this.state.board.map((row, rowIx) => (
 						<tr>
-							<td id='game_board-c1' ref='c1' onClick={this.click_cell.bind(this)}> {this.cell_cont('c1')} </td>
-							<td id='game_board-c2' ref='c2' onClick={this.click_cell.bind(this)} className="vbrd"> {this.cell_cont('c2')} </td>
-							<td id='game_board-c3' ref='c3' onClick={this.click_cell.bind(this)}> {this.cell_cont('c3')} </td>
+							{row.map((cell, colIx) => (
+								<td
+									id={`game_board-${rowIx}-${colIx}`}
+									ref={cellId(rowIx, colIx)}
+									onClick={() => clickCell(rowIx, colIx)}
+									className={getCellClass(rowIx, colIx)}
+								>
+									{' '}
+										{cell==='x' && <i className="fa fa-times fa-5x"></i>}
+										{cell==='o' && <i className="fa fa-circle-o fa-5x"></i>}
+									{' '}
+								</td>
+							))}
 						</tr>
-						<tr>
-							<td id='game_board-c4' ref='c4' onClick={this.click_cell.bind(this)} className="hbrd"> {this.cell_cont('c4')} </td>
-							<td id='game_board-c5' ref='c5' onClick={this.click_cell.bind(this)} className="vbrd hbrd"> {this.cell_cont('c5')} </td>
-							<td id='game_board-c6' ref='c6' onClick={this.click_cell.bind(this)} className="hbrd"> {this.cell_cont('c6')} </td>
-						</tr>
-						<tr>
-							<td id='game_board-c7' ref='c7' onClick={this.click_cell.bind(this)}> {this.cell_cont('c7')} </td>
-							<td id='game_board-c8' ref='c8' onClick={this.click_cell.bind(this)} className="vbrd"> {this.cell_cont('c8')} </td>
-							<td id='game_board-c9' ref='c9' onClick={this.click_cell.bind(this)}> {this.cell_cont('c9')} </td>
-						</tr>
+					))}
 					</tbody>
 					</table>
 				</div>
@@ -150,168 +145,185 @@ export default class SetName extends Component {
 //	------------------------	------------------------	------------------------
 //	------------------------	------------------------	------------------------
 
-	click_cell (e) {
-		// console.log(e.currentTarget.id.substr(11))
-		// console.log(e.currentTarget)
-
+	click_cell (rowIx, colIx) {
 		if (!this.state.next_turn_ply || !this.state.game_play) return
 
-		const cell_id = e.currentTarget.id.substr(11)
-		if (this.state.cell_vals[cell_id]) return
+		if (this.state.board[rowIx][colIx]) return
 
-		if (this.props.game_type != 'live')
-			this.turn_ply_comp(cell_id)
+		if (this.props.game_type !== 'live')
+			this.turn_ply_comp(rowIx, colIx)
 		else
-			this.turn_ply_live(cell_id)
+			this.turn_ply_live(rowIx, colIx)
 	}
 
 //	------------------------	------------------------	------------------------
 //	------------------------	------------------------	------------------------
 
-	turn_ply_comp (cell_id) {
+	turn_ply_comp (rowIx, colIx) {
+		const { board } = this.state
+		board[rowIx][colIx] = 'x'
 
-		let { cell_vals } = this.state
+		TweenMax.from(this.refs[cellId(rowIx, colIx)], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
 
-		cell_vals[cell_id] = 'x'
-
-		TweenMax.from(this.refs[cell_id], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
-
-
-		// this.setState({
-		// 	cell_vals: cell_vals,
-		// 	next_turn_ply: false
-		// })
-
-		// setTimeout(this.turn_comp.bind(this), rand_to_fro(500, 1000));
-
-		this.state.cell_vals = cell_vals
-
-		this.check_turn()
+		this.state.board = board
+		this.check_turn({rowIx, colIx})
 	}
 
 //	------------------------	------------------------	------------------------
 
 	turn_comp () {
-
-		let { cell_vals } = this.state
+		const { board } = this.state
 		let empty_cells_arr = []
 
+		this.state.board.forEach((row, rowIx) => {
+			row.forEach((value, colIx) => {
+				if ( !value ) {
+					empty_cells_arr.push({rowIx, colIx})
+				}
+			})
+		})
 
-		for (let i=1; i<=9; i++) 
-			!cell_vals['c'+i] && empty_cells_arr.push('c'+i)
-		// console.log(cell_vals, empty_cells_arr, rand_arr_elem(empty_cells_arr))
+		const { rowIx, colIx } = rand_arr_elem(empty_cells_arr)
+		board[rowIx][colIx] = 'o'
 
-		const c = rand_arr_elem(empty_cells_arr)
-		cell_vals[c] = 'o'
+		TweenMax.from(this.refs[cellId(rowIx, colIx)], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
 
-		TweenMax.from(this.refs[c], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
+		this.state.board = board
 
-
-		// this.setState({
-		// 	cell_vals: cell_vals,
-		// 	next_turn_ply: true
-		// })
-
-		this.state.cell_vals = cell_vals
-
-		this.check_turn()
+		this.check_turn({rowIx, colIx})
 	}
 
 
 //	------------------------	------------------------	------------------------
 //	------------------------	------------------------	------------------------
 
-	turn_ply_live (cell_id) {
+	turn_ply_live (rowIx, colIx) {
+		const { board } = this.state
+		board[rowIx][colIx] = 'x'
 
-		let { cell_vals } = this.state
+		TweenMax.from(this.refs[cellId(rowIx, colIx)], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
 
-		cell_vals[cell_id] = 'x'
+		this.socket.emit('ply_turn', { rowIx, colIx});
+		this.state.board = board
 
-		TweenMax.from(this.refs[cell_id], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
-
-		this.socket.emit('ply_turn', { cell_id: cell_id });
-
-		// this.setState({
-		// 	cell_vals: cell_vals,
-		// 	next_turn_ply: false
-		// })
-
-		// setTimeout(this.turn_comp.bind(this), rand_to_fro(500, 1000));
-
-		this.state.cell_vals = cell_vals
-
-		this.check_turn()
+		this.check_turn({rowIx, colIx})
 	}
 
 //	------------------------	------------------------	------------------------
 
 	turn_opp_live (data) {
+		const { rowIx, colIx } = data
+		const { board } = this.state
+		board[rowIx][colIx] = 'o'
 
-		let { cell_vals } = this.state
-		let empty_cells_arr = []
+		TweenMax.from(this.refs[cellId(rowIx, colIx)], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
 
+		this.state.board = board
 
-		const c = data.cell_id
-		cell_vals[c] = 'o'
-
-		TweenMax.from(this.refs[c], 0.7, {opacity: 0, scaleX:0, scaleY:0, ease: Power4.easeOut})
-
-
-		// this.setState({
-		// 	cell_vals: cell_vals,
-		// 	next_turn_ply: true
-		// })
-
-		this.state.cell_vals = cell_vals
-
-		this.check_turn()
+		this.check_turn(data)
 	}
 
 //	------------------------	------------------------	------------------------
 //	------------------------	------------------------	------------------------
 //	------------------------	------------------------	------------------------
 
-	check_turn () {
+	checkWin (lastMove) {
+		const { board } = this.state
+		const { boardSize } = this.props
+		let winCells = []
 
-		const { cell_vals } = this.state
+		// Walk along a line of the board and check for 3 in a row
+		const checkLine = (rowInc, colInc) => {
+			let lastCell = null
+			winCells = []
 
-		let win = false
-		let set
-		let fin = true
+			// Calculate the upper and lower bounds of the line we are going to walk
+			// The line bounds won't be more than 2 cells in either direction from the last move
+			// Upper bound will be one more step than that
+			// 	- don't want to terminate before checking the last cell in the line
+			const lowerRowBound = lastMove.rowIx - (2 * rowInc)
+			const upperRowBound = lastMove.rowIx + (3 * rowInc)
+			const lowerColBound = lastMove.colIx - (2 * colInc)
+			const upperColBound = lastMove.colIx + (3 * colInc)
+
+			for (
+				let rowIx = lowerRowBound, colIx = lowerColBound;
+				rowIx !== upperRowBound || colIx !== upperColBound;
+				rowIx += rowInc, colIx += colInc
+			) {
+				if ( rowIx < 0 || colIx < 0 || rowIx >= boardSize || colIx >= boardSize ) {
+					// This is not a cell on the table, skip it
+					continue
+				}
+
+				const cell = board[rowIx][colIx]
+				if ( lastCell !== cell ) {
+					// Doesn't match the last cell in sequence, so reset
+					lastCell = cell
+					winCells = cell ? [{rowIx, colIx}] : []
+				}
+				else if ( lastCell ) {
+					// Matches the last cell in sequence, so add to sequence
+					winCells.push({rowIx, colIx})
+					if ( winCells.length === 3 ) {
+						// Immediately break if we detect a win condition
+						return true
+					}
+				}
+				else {
+					// Otherwise its another empty cell: no-op
+				}
+			}
+
+			return false
+		}
+
+		if (
+			checkLine(0, 1) || // Check the current row
+			checkLine(1, 0) || // Check the current column
+			checkLine(1, 1) || // Check the current forward diagonal
+			checkLine(1, -1)   // Check the current backward diagonal
+		) {
+			return winCells
+		}
+
+		return undefined
+	}
+
+	checkDraw () {
+		return this.state.board.every((row) => {
+			return row.every((col) => !!col)
+		})
+	}
+
+	check_turn (lastMove) {
+		const { board } = this.state
 
 		if (this.props.game_type!='live')
 			this.state.game_stat = 'Play'
 
+		const winCells = this.checkWin(lastMove)
 
-		for (let i=0; !win && i<this.win_sets.length; i++) {
-			set = this.win_sets[i]
-			if (cell_vals[set[0]] && cell_vals[set[0]]==cell_vals[set[1]] && cell_vals[set[0]]==cell_vals[set[2]])
-				win = true
-		}
-
-
-		for (let i=1; i<=9; i++) 
-			!cell_vals['c'+i] && (fin = false)
-
-		// win && console.log('win set: ', set)
-
-		if (win) {
+		if (winCells) {
 		
-			this.refs[set[0]].classList.add('win')
-			this.refs[set[1]].classList.add('win')
-			this.refs[set[2]].classList.add('win')
+			this.refs[cellId(winCells[0].rowIx, winCells[0].colIx)].classList.add('win')
+			this.refs[cellId(winCells[1].rowIx, winCells[1].colIx)].classList.add('win')
+			this.refs[cellId(winCells[2].rowIx, winCells[2].colIx)].classList.add('win')
 
 			TweenMax.killAll(true)
 			TweenMax.from('td.win', 1, {opacity: 0, ease: Linear.easeIn})
 
+			const { rowIx, colIx } = winCells[0]
+			const youWin = board[rowIx][colIx] === 'x'
+
 			this.setState({
-				game_stat: (cell_vals[set[0]]=='x'?'You':'Opponent')+' win',
+				game_stat: youWin ? 'You Win' : 'Opponent Wins',
 				game_play: false
 			})
 
 			this.socket && this.socket.disconnect();
 
-		} else if (fin) {
+		} else if (this.checkDraw()) {
 		
 			this.setState({
 				game_stat: 'Draw',
